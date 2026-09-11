@@ -1,0 +1,9 @@
+node_modules
+media
+config
+data
+.git
+*.log
+.env
+tasks.json
+settings.json

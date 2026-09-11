@@ -1,0 +1,16 @@
+{
+  "name": "jellyfin-downloader",
+  "version": "1.0.0",
+  "description": "Smart Web GUI Download Manager for Jellyfin",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "fs-extra": "^11.2.0",
+    "socket.io": "^4.7.5",
+    "systeminformation": "^5.22.6"
+  }
+}

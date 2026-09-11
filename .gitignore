@@ -1,0 +1,9 @@
+node_modules/
+media/
+config/
+data/
+*.log
+.env
+tasks.json
+settings.json
+.DS_Store

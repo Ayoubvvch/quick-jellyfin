@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jellyfin Download Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo-icon">
+          <i class="fa-solid fa-cloud-arrow-down"></i>
+        </div>
+        <div class="brand-text">
+          <h1>Jellyfin Downloader</h1>
+          <span class="sub-title">High-Speed Download Manager for Jellyfin Media Library</span>
+        </div>
+      </div>
+      
+      <div class="header-stats">
+        <div class="stat-badge disk-stat">
+          <i class="fa-solid fa-hard-drive"></i>
+          <div>
+            <span class="stat-label">Storage Used</span>
+            <span class="stat-value" id="diskUsageText">...</span>
+          </div>
+          <div class="mini-progress-bar"><div class="mini-progress-fill" id="diskProgressFill"></div></div>
+        </div>
+        
+        <div class="stat-badge ram-stat">
+          <i class="fa-solid fa-memory"></i>
+          <div>
+            <span class="stat-label">RAM Usage</span>
+            <span class="stat-value" id="ramUsageText">...</span>
+          </div>
+          <div class="mini-progress-bar"><div class="mini-progress-fill" id="ramProgressFill"></div></div>
+        </div>
+
+        <div class="connection-status" id="connectionStatus">
+          <span class="dot"></span> <span id="statusText">Connecting...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="nav-btn active" data-tab="new-download">
+        <i class="fa-solid fa-plus-circle"></i> New Download
+      </button>
+      <button class="nav-btn" data-tab="active-queue">
+        <i class="fa-solid fa-download" id="activeTabIcon"></i> Active Downloads <span class="badge" id="activeCountBadge">0</span>
+      </button>
+      <button class="nav-btn" data-tab="media-explorer">
+        <i class="fa-solid fa-folder-tree"></i> File Manager
+      </button>
+      <button class="nav-btn" data-tab="history">
+        <i class="fa-solid fa-clock-rotate-left"></i> History
+      </button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="content-area">
+
+      <!-- TAB 1: NEW DOWNLOAD -->
+      <section class="tab-content active" id="new-download">
+        <div class="glass-panel">
+          <div class="panel-header">
+            <h2><i class="fa-solid fa-link"></i> Add Download Links</h2>
+            <p>Paste one or multiple direct URLs (Supports MediaFire, direct file links, and auto-unzipping archives)</p>
+          </div>
+
+          <div class="form-group">
+            <label for="urlInput">Download URLs (one per line):</label>
+            <textarea id="urlInput" placeholder="https://www.mediafire.com/file/...&#10;https://example.com/movie.mp4"></textarea>
+          </div>
+
+          <div class="grid-2col">
+            <div class="form-group">
+              <label for="connectionsSelect"><i class="fa-solid fa-network-wired"></i> Parallel Connections per Task:</label>
+              <select id="connectionsSelect">
+                <option value="16" selected>🚀 16 Connections (Maximum Speed - MediaFire & High-Speed Servers)</option>
+                <option value="8">⚡ 8 Connections (High Speed - Standard Hosts)</option>
+                <option value="4">⚡ 4 Connections (Balanced - Moderate Hosts)</option>
+                <option value="1">🛡️ 1 Connection (Single - Rate-Limited Hosts)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="section-title"><i class="fa-solid fa-layer-group"></i> Destination Library & Category</div>
+          
+          <div class="category-grid">
+            <div class="category-card active" data-category="movies">
+              <i class="fa-solid fa-film"></i>
+              <h3>Movies</h3>
+              <p>/media/movies</p>
+            </div>
+            <div class="category-card" data-category="shows">
+              <i class="fa-solid fa-tv"></i>
+              <h3>TV Shows</h3>
+              <p>/media/shows</p>
+            </div>
+            <div class="category-card" data-category="anime">
+              <i class="fa-solid fa-dragon"></i>
+              <h3>Anime</h3>
+              <p>/media/anime</p>
+            </div>
+          </div>
+
+          <!-- Dynamic Show & Season Selection (Shown if category is shows or anime) -->
+          <div class="show-selection-panel hidden" id="showSelectionPanel">
+            <div class="grid-2col">
+              <div class="form-group">
+                <label for="showSelect">Select Show / Anime:</label>
+                <div class="flex-row">
+                  <select id="showSelect"><option value="">-- Select Show --</option></select>
+                  <button type="button" class="btn btn-secondary" id="btnNewShow"><i class="fa-solid fa-folder-plus"></i> + New Show</button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="seasonSelect">Select Season:</label>
+                <div class="flex-row">
+                  <select id="seasonSelect"><option value="">-- Select Season --</option></select>
+                  <button type="button" class="btn btn-secondary" id="btnNewSeason"><i class="fa-solid fa-plus"></i> + New Season</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Target Path Preview -->
+          <div class="target-path-preview">
+            <i class="fa-solid fa-folder-open"></i> Destination Path: <strong id="targetPathText">/home/ubuntu/jellyfin/media/movies</strong>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-primary btn-lg" id="btnStartDownload">
+              <i class="fa-solid fa-bolt"></i> Start Download Now
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: ACTIVE QUEUE -->
+      <section class="tab-content" id="active-queue">
+        <div class="glass-panel">
+          <div class="panel-header flex-between">
+            <div>
+              <h2><i class="fa-solid fa-list-check"></i> Active & Queued Downloads</h2>
+              <p>Real-time progress, download speed, and queue monitoring</p>
+            </div>
+            <div class="flex-row" style="align-items: center;">
+              <div class="form-group-inline" style="display: flex; align-items: center; gap: 8px;">
+                <label for="maxConcurrentSelect" style="font-size:13px; color:var(--text-secondary); white-space:nowrap;"><i class="fa-solid fa-sliders"></i> Concurrent Tasks:</label>
+                <select id="maxConcurrentSelect" style="padding:6px 12px; width:auto; font-size:13px;">
+                  <option value="1">1 at a time</option>
+                  <option value="2" selected>2 at a time</option>
+                  <option value="3">3 at a time</option>
+                  <option value="5">5 at a time</option>
+                </select>
+              </div>
+              <button class="btn btn-danger btn-sm" id="btnClearCompleted">
+                <i class="fa-solid fa-trash"></i> Clear Completed
+              </button>
+            </div>
+          </div>
+
+          <div id="tasksQueueContainer" class="tasks-container">
+            <div class="empty-state">
+              <i class="fa-solid fa-inbox"></i>
+              <p>No active or queued downloads currently</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: MEDIA EXPLORER / FILE MANAGER -->
+      <section class="tab-content" id="media-explorer">
+        <div class="glass-panel">
+          <div class="panel-header flex-between">
+            <div>
+              <h2><i class="fa-solid fa-folder-tree"></i> Media Explorer & File Manager</h2>
+              <p>Browse, organize, move, cut & paste, and clean up media storage</p>
+            </div>
+            <div class="flex-row" style="align-items: center; gap: 10px;">
+              <div class="explorer-stat-badge">
+                <i class="fa-solid fa-hard-drive"></i> Folder Size: <strong id="totalFolderSize">0 B</strong>
+              </div>
+              <button class="btn btn-secondary btn-sm" id="btnNewFolderModal">
+                <i class="fa-solid fa-folder-plus"></i> New Folder
+              </button>
+              <button class="btn btn-secondary btn-sm" id="btnRefreshFiles">
+                <i class="fa-solid fa-rotate"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <!-- Breadcrumbs -->
+          <div class="breadcrumb-bar" id="explorerBreadcrumb">
+            <span class="crumb" data-path="">Root (media)</span>
+          </div>
+
+          <!-- Batch Actions Toolbar (Shown when 1+ files selected) -->
+          <div class="batch-action-bar hidden" id="batchActionBar">
+            <div class="batch-info">
+              <i class="fa-solid fa-check-double"></i>
+              <span id="selectedCountText">0 items selected</span>
+            </div>
+            <div class="batch-buttons flex-row">
+              <button class="btn btn-primary btn-sm" id="btnCutSelection">
+                <i class="fa-solid fa-scissors"></i> Cut Selected
+              </button>
+              <button class="btn btn-danger btn-sm" id="btnDeleteSelection">
+                <i class="fa-solid fa-trash"></i> Delete Selected
+              </button>
+              <button class="btn btn-secondary btn-sm" id="btnClearSelection">
+                <i class="fa-solid fa-xmark"></i> Deselect
+              </button>
+            </div>
+          </div>
+
+          <!-- Clipboard Banner (Shown when items are cut and ready to be pasted) -->
+          <div class="clipboard-banner hidden" id="clipboardBanner">
+            <div class="clipboard-info">
+              <i class="fa-solid fa-clipboard-check"></i>
+              <span id="clipboardCountText">0 items ready to move</span>
+            </div>
+            <div class="clipboard-buttons flex-row">
+              <button class="btn btn-success btn-sm" id="btnPasteClipboard">
+                <i class="fa-solid fa-paste"></i> Paste Here
+              </button>
+              <button class="btn btn-secondary btn-sm" id="btnCancelCut">
+                <i class="fa-solid fa-xmark"></i> Cancel Cut
+              </button>
+            </div>
+          </div>
+
+          <!-- File Table -->
+          <div class="file-table-container">
+            <table class="file-table">
+              <thead>
+                <tr>
+                  <th style="width: 40px; text-align: center;">
+                    <input type="checkbox" id="selectAllCheckbox" title="Select all in this folder">
+                  </th>
+                  <th id="thName" style="cursor:pointer">Name <i class="fa-solid fa-sort"></i></th>
+                  <th id="thSize" style="cursor:pointer" class="active-sort">Size <i class="fa-solid fa-sort-down"></i></th>
+                  <th id="thDate" style="cursor:pointer">Date Modified <i class="fa-solid fa-sort"></i></th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="fileExplorerBody">
+                <tr><td colspan="5" class="text-center">Calculating file and folder sizes...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: HISTORY -->
+      <section class="tab-content" id="history">
+        <div class="glass-panel">
+          <div class="panel-header flex-between">
+            <div>
+              <h2><i class="fa-solid fa-clock-rotate-left"></i> Download History</h2>
+              <p>Log of completed, failed, or cancelled downloads</p>
+            </div>
+          </div>
+
+          <div id="historyContainer" class="tasks-container">
+            <div class="empty-state">
+              <i class="fa-solid fa-box-open"></i>
+              <p>History is empty</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Modals -->
+  <!-- Modal 1: New Show -->
+  <div class="modal" id="modalNewShow">
+    <div class="modal-content glass-panel">
+      <h3><i class="fa-solid fa-folder-plus"></i> Add New TV Show / Anime</h3>
+      <div class="form-group">
+        <label>Show Name:</label>
+        <input type="text" id="inputNewShowName" placeholder="e.g. Stranger Things or One Piece">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="btnCloseShowModal">Cancel</button>
+        <button class="btn btn-primary" id="btnSaveNewShow">Create Folder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: New Season -->
+  <div class="modal" id="modalNewSeason">
+    <div class="modal-content glass-panel">
+      <h3><i class="fa-solid fa-plus"></i> Add New Season</h3>
+      <div class="form-group">
+        <label>Season Number (e.g. 1 or 2):</label>
+        <input type="number" id="inputNewSeasonNum" value="1" min="1">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="btnCloseSeasonModal">Cancel</button>
+        <button class="btn btn-primary" id="btnSaveNewSeason">Create Season</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: New Folder in Explorer -->
+  <div class="modal" id="modalNewFolder">
+    <div class="modal-content glass-panel">
+      <h3><i class="fa-solid fa-folder-plus"></i> Create New Folder</h3>
+      <div class="form-group">
+        <label>Folder Name:</label>
+        <input type="text" id="inputNewFolderName" placeholder="e.g. Extras, Season 02, Movie Name">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="btnCloseFolderModal">Cancel</button>
+        <button class="btn btn-primary" id="btnSaveNewFolder">Create Folder</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
